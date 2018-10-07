@@ -5,7 +5,7 @@
 extends Camera
 
 export (bool) var movEnabled = true
-export (float) var mouseSensitivity = 0.1
+export (float) var mouseSensitivity = 0.5
 export (float) var flyspeed = 1.0
 
 var lastMousePos
