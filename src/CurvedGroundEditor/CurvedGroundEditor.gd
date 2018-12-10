@@ -4,9 +4,12 @@ extends Path
 
 export (bool) onready var showDebugRays  = false setget toggleVisibleDebugRays
 export (bool) onready var enableUpVector = true setget toggleUpVector
-export (Mesh) onready var mainMesh setget updateMesh
+export (Mesh) var mainMesh = PlaneMesh.new() setget updateMesh
 export (int) var meshRepetitonsNumber = 1 setget updateRepetitonsNumber
 export (float) var curvedMeshStartingOffset = 0.0 setget changeStartingOffset
+export (bool) var createTrimeshStaticBody = false setget generateCollision
+export (bool) var test = false setget testFunc#To test some things out
+export (Vector3) var xyzScale = Vector3(1,1,1) setget changeXScale
 
 var epsilon = 0.2
 var debugRaysInterval = 2.0 #Don't make too small !
@@ -22,19 +25,148 @@ var mainMeshMdt = MeshDataTool.new()
 var beforeCurveMdt = MeshDataTool.new() #copy of curvedMeshMdt at creation
 var curvedMeshMdt = MeshDataTool.new()
 
+var prevCurve : Curve3D = Curve3D.new()
+var updateLowerBound : int#An array, in which every couple contains the idx of the vertices between which the mesh must be updated. Ex : [(0,2),(3,4)] means the mesh must be updates between vertices of id 0 and 2, 3 and 4, but not 2 and 3
+var updateAll : bool = false
+var updateFrequency : float = 0.2#The smaller this number is, the more updates there are
+var deltaSum : float = 0.0
+
 func _ready():
-	updateCurve()
+	if meshRepetitonsNumber == null:
+		meshRepetitonsNumber = 1
+	if curvedMeshStartingOffset == null :
+		curvedMeshStartingOffset = 0.0
+	if mainMesh == null:
+		mainMesh = ArrayMesh.new()
+	updateAll = false
+	enableUpVector = true
+	deltaSum = 0.0
+	
+	updateLowerBound = -1
+	prevCurve = curve.duplicate()
+
+func _process(delta):
+	deltaSum += delta
+	
+	if deltaSum >= updateFrequency:
+		deltaSum = 0
+		if updateLowerBound != -1:
+			print(updateLowerBound)
+			if showDebugRays:
+				self.recalculateDebugRayCasts()
+			curveMainMesh(curve, curvedMeshStartingOffset, updateLowerBound)
+			updateLowerBound = -1
 
 func updateCurve():
-	if showDebugRays:
-		self.recalculateDebugRayCasts()
-	curveMainMesh(0.0)
+	if prevCurve.get_point_count() != 0 and curve.get_point_count() != 0:
+		if prevCurve.get_point_count() < curve.get_point_count():#A vertex was added
+			if prevCurve.get_point_position(prevCurve.get_point_count()-1) != curve.get_point_position(curve.get_point_count()-1):
+				if updateLowerBound == -1:
+					updateLowerBound = max(0,curve.get_point_count()-2)
+				else:
+					updateLowerBound = min(updateLowerBound, curve.get_point_count()-2)
+			else:
+				for i in prevCurve.get_point_count():
+					if prevCurve.get_point_position(i) != curve.get_point_position(i):
+						if updateLowerBound == -1:
+							updateLowerBound = max(0,i-1)
+						else:
+							updateLowerBound = min(updateLowerBound,i-1)
+						break
+		elif prevCurve.get_point_count() > curve.get_point_count():
+			if prevCurve.get_point_position(prevCurve.get_point_count()-1) != curve.get_point_position(curve.get_point_count()-1):
+				if updateLowerBound == -1:
+					updateLowerBound = max(0,curve.get_point_count()-1)
+				else:
+					updateLowerBound = min(updateLowerBound, curve.get_point_count()-1)
+			else:
+				for i in prevCurve.get_point_count():
+					if prevCurve.get_point_position(i) != curve.get_point_position(i):
+						if updateLowerBound == -1:
+							updateLowerBound = max(0,i-1)
+						else:
+							updateLowerBound = min(updateLowerBound,i-1)
+						break
+		else:#Same vertices count, but there was change
+			for i in prevCurve.get_point_count():
+				if prevCurve.get_point_in(i) != curve.get_point_in(i) or prevCurve.get_point_out(i) != curve.get_point_out(i) or prevCurve.get_point_position(i) != curve.get_point_position(i) or prevCurve.get_point_tilt(i) != curve.get_point_tilt(i):
+					if updateLowerBound == -1:
+						updateLowerBound = max(0,i-1)
+					else:
+						updateLowerBound = min(updateLowerBound,i)
+					break
+	
+	prevCurve = curve.duplicate()
+	
+func testFunc(value):
+	#Used from time to time by some shady developper. Who might it be ?
+	pass
+	
+#Adds an interval in a reunion of intervals, in such a way that all elements of the array are sorted and disjointed
+func addIntervalInReunion(reunionArray : PoolVector2Array, newInterval : Vector2):
+	if newInterval.x > newInterval.y:#If the interval isn't correctly sent, we swap the values
+		var temp = newInterval.x
+		newInterval.x = newInterval.y
+		newInterval.y = temp
+	
+	var tempInterval
+	
+	if reunionArray.size() != 0:
+		if newInterval.y < reunionArray[0].x:
+			reunionArray.insert(0,newInterval)
+		elif newInterval.x > reunionArray[reunionArray.size() - 1].y:
+			reunionArray.append(newInterval)
+		else:
+			for i in reunionArray.size():
+				tempInterval = joinTwoIntervals(reunionArray[i],newInterval)
+				if tempInterval != null:
+					reunionArray[i] = tempInterval
+					break
+				elif i < reunionArray.size()-1:
+					if newInterval.x > reunionArray[i].y and newInterval.y < reunionArray[i+1].x:
+						reunionArray.insert(i+1, newInterval)
+						break
+				
+		#We ensure that all intervals are disjointed
+		var allIntervalsDisjointed = false
+		while allIntervalsDisjointed == false:
+			allIntervalsDisjointed = true
+			for i in reunionArray.size() - 1:
+				tempInterval = joinTwoIntervals(reunionArray[i],reunionArray[i+1])
+				if tempInterval != null:
+					allIntervalsDisjointed = false
+					reunionArray.remove(i+1)
+					reunionArray[i] = tempInterval
+					break
+		
+	else:
+		reunionArray.append(newInterval)
+	
+	return reunionArray
+	
+#Returns a jointed interval if it exists. Otherwise, returns null
+func joinTwoIntervals(interval1 : Vector2, interval2 : Vector2):
+	
+	if interval1.x > interval2.x:
+		var temp = interval1
+		interval1 = interval2
+		interval2 = temp
+	
+	if interval1.y >= interval2.x:
+		return Vector2(min(interval1.x,interval2.x),max(interval1.y,interval2.y))
+		
+func generateCollision(value):
+	if self.has_node("CurvedMesh") and value == true:
+		for i in $CurvedMesh.get_children():
+			if i is StaticBody:#We delete all the previous collisionShapes
+				i.queue_free()
+		
+		$CurvedMesh.create_trimesh_collision()
 	
 func updateMesh(mesh):
 	if mesh != null and self.has_node("CurvedMesh"):
 		mainMesh = ArrayMesh.new()
-		guidingVector = guidingVector.normalized() #Just to make sure...
-		
+
 		#We convert the mesh input from any mesh type to an ArrayMesh
 		mainMesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, mesh.surface_get_arrays(0))
 			
@@ -53,35 +185,49 @@ func updateMesh(mesh):
 		
 		#Those are testing grounds, soldier. Do not enter if you don't know what you're doing (or, if you know very well what you're doing)
 		repeatMeshFromMdtToMeshIns(mainMeshMdt, $CurvedMesh, meshRepetitonsNumber, mainMeshDist, curvedMeshMdt)
-
+		curveMainMesh(curve, curvedMeshStartingOffset)
+		
 func updateRepetitonsNumber(value):
 	if self.has_node("CurvedMesh"):
 		if value >= 1:
 			meshRepetitonsNumber = value
 			repeatMeshFromMdtToMeshIns(mainMeshMdt, $CurvedMesh, meshRepetitonsNumber, mainMeshDist, curvedMeshMdt)
-			curveMainMesh(0.0)
+			curveMainMesh(curve, curvedMeshStartingOffset)
 			
-func curveMainMesh(startingOffset : float = 0.0):
+func curveMainMesh(guidingCurve : Curve3D, startingOffset : float = 0.0, updateFromVertexOfId : int = 0):
 	if self.has_node("CurvedMesh") and beforeCurveMdt.get_vertex_count() != 0:
+		
 		var alpha : float = 0.0
 		var beta : float = 0.0
 		var originalVertex : Vector3 = Vector3(0,0,0)
 		var vertexCurveOffset : float = 0.0
-		
+		var minOffset : float = curvePointIdToOffset(updateFromVertexOfId, guidingCurve)
+			
 		for vertexIndex in range(beforeCurveMdt.get_vertex_count()):
 			originalVertex = beforeCurveMdt.get_vertex(vertexIndex)
-			alpha = originalVertex.y
-			beta = originalVertex.z
-			vertexCurveOffset = min(self.get_curve().get_baked_length(), startingOffset + pointDist(guidingVector, guidingVectorOrigin, originalVertex) - minDist)
-
-			curvedMeshMdt.set_vertex(vertexIndex, self.get_curve().interpolate_baked(vertexCurveOffset) + alpha * self.getUpFromOffset(vertexCurveOffset) + beta * self.getNormalFromOffset(vertexCurveOffset))
+			#The offset of the vertex on the curve
+			vertexCurveOffset = xyzScale.x * min(guidingCurve.get_baked_length(), startingOffset + pointDist(guidingVector, guidingVectorOrigin, originalVertex) - minDist)
+			
+			if vertexCurveOffset >= minOffset:
+				alpha = xyzScale.y * originalVertex.y
+				beta = xyzScale.z * originalVertex.z
+				curvedMeshMdt.set_vertex(vertexIndex, guidingCurve.interpolate_baked(vertexCurveOffset) + alpha * self.getUpFromOffset(vertexCurveOffset) + beta * self.getNormalFromOffset(vertexCurveOffset))
 
 		var test = ArrayMesh.new()
 		curvedMeshMdt.commit_to_surface(test)
 		$CurvedMesh.set_mesh(test)
 		
+func curvePointIdToOffset(idx : int, targetCurve : Curve3D):
+	if idx == INF:
+		return INF
+	elif idx == -INF:
+		return -INF
+	else:
+		return(targetCurve.get_closest_offset(targetCurve.get_point_position(idx)))
+		
 func changeStartingOffset(newOffset):
 	curvedMeshStartingOffset = newOffset
+	updateAll = true
 
 func repeatMeshFromMdtToMeshIns(sourceMdt : MeshDataTool, targetMeshInstance : MeshInstance, repetitions : int, meshSize : float, meshInstanceMdt : MeshDataTool = null):
 	if self.has_node("CurvedMesh"):
@@ -178,51 +324,54 @@ func getNormalFromUpAndTangent(up, tangent):
 func recalculateDebugRayCasts():
 	#First we create the correct number of RayCasts
 	#First the up vecs
-	if Engine.editor_hint():
-		var vecsNums = ceil(curve.get_baked_length() / debugRaysInterval)
+	var vecsNums = ceil(curve.get_baked_length() / debugRaysInterval)
+	
+	if self.has_node("AllRaycasts/NormVecs") and self.has_node("AllRaycasts/TangentVecs") and self.has_node("AllRaycasts/UpVecs"):
+		if vecsNums != $AllRaycasts/UpVecs.get_child_count():
+			while $AllRaycasts/UpVecs.get_child_count() < vecsNums:
+				var newUpRay = RayCast.new()
+				$AllRaycasts/UpVecs.add_child(newUpRay)
+				newUpRay.set_owner(get_tree().get_edited_scene_root())
+			while $AllRaycasts/UpVecs.get_child_count() > vecsNums:
+				$AllRaycasts/UpVecs.remove_child($AllRaycasts/UpVecs.get_child(0))
+		#Then the tangent rays
+		if vecsNums != $AllRaycasts/TangentVecs.get_child_count():
+			while $AllRaycasts/TangentVecs.get_child_count() < vecsNums:
+				var newUpRay = RayCast.new()
+				$AllRaycasts/TangentVecs.add_child(newUpRay)
+				newUpRay.set_owner(get_tree().get_edited_scene_root())
+			while $AllRaycasts/TangentVecs.get_child_count() > vecsNums:
+				$AllRaycasts/TangentVecs.remove_child($AllRaycasts/TangentVecs.get_child(0))
 		
-		if self.has_node("AllRaycasts/NormVecs") and self.has_node("AllRaycasts/TangentVecs") and self.has_node("AllRaycasts/UpVecs"):
-			if vecsNums != $AllRaycasts/UpVecs.get_child_count():
-				while $AllRaycasts/UpVecs.get_child_count() < vecsNums:
-					var newUpRay = RayCast.new()
-					$AllRaycasts/UpVecs.add_child(newUpRay)
-					newUpRay.set_owner(get_tree().get_edited_scene_root())
-				while $AllRaycasts/UpVecs.get_child_count() > vecsNums:
-					$AllRaycasts/UpVecs.remove_child($AllRaycasts/UpVecs.get_child(0))
-			#Then the tangent rays
-			if vecsNums != $AllRaycasts/TangentVecs.get_child_count():
-				while $AllRaycasts/TangentVecs.get_child_count() < vecsNums:
-					var newUpRay = RayCast.new()
-					$AllRaycasts/TangentVecs.add_child(newUpRay)
-					newUpRay.set_owner(get_tree().get_edited_scene_root())
-				while $AllRaycasts/TangentVecs.get_child_count() > vecsNums:
-					$AllRaycasts/TangentVecs.remove_child($AllRaycasts/TangentVecs.get_child(0))
+		#Finally the normal rays
+		if vecsNums != $AllRaycasts/NormVecs.get_child_count():
+			while $AllRaycasts/NormVecs.get_child_count() < vecsNums:
+				var newUpRay = RayCast.new()
+				$AllRaycasts/NormVecs.add_child(newUpRay)
+				newUpRay.set_owner(get_tree().get_edited_scene_root())
+			while $AllRaycasts/NormVecs.get_child_count() > vecsNums:
+				$AllRaycasts/NormVecs.remove_child($AllRaycasts/NormVecs.get_child(0))
+				
+		var offset = 0.0
+		var index = 0.0
+		
+		while offset < curve.get_baked_length():
+			index = offset / debugRaysInterval
 			
-			#Finally the normal rays
-			if vecsNums != $AllRaycasts/NormVecs.get_child_count():
-				while $AllRaycasts/NormVecs.get_child_count() < vecsNums:
-					var newUpRay = RayCast.new()
-					$AllRaycasts/NormVecs.add_child(newUpRay)
-					newUpRay.set_owner(get_tree().get_edited_scene_root())
-				while $AllRaycasts/NormVecs.get_child_count() > vecsNums:
-					$AllRaycasts/NormVecs.remove_child($AllRaycasts/NormVecs.get_child(0))
-					
-			var offset = 0.0
-			var index = 0.0
+			$AllRaycasts/UpVecs.get_child(index).translation = curve.interpolate_baked(offset)
+			$AllRaycasts/UpVecs.get_child(index).cast_to = getUpFromOffset(offset)
+				
+			$AllRaycasts/TangentVecs.get_child(index).translation = curve.interpolate_baked(offset)
+			$AllRaycasts/TangentVecs.get_child(index).cast_to = getTangentFromOffset(offset)
 			
-			while offset < curve.get_baked_length():
-				index = offset / debugRaysInterval
+			$AllRaycasts/NormVecs.get_child(index).translation = curve.interpolate_baked(offset)
+			$AllRaycasts/NormVecs.get_child(index).cast_to = getNormalFromUpAndTangent($AllRaycasts/UpVecs.get_child(index).cast_to, $AllRaycasts/TangentVecs.get_child(index).cast_to)
+			#print("up.tang = " + str($AllRaycasts/UpVecs.get_child(index).cast_to.dot($AllRaycasts/TangentVecs.get_child(index).cast_to)))
+			#print("up.norm = " + str($AllRaycasts/UpVecs.get_child(index).cast_to.dot($AllRaycasts/NormVecs.get_child(index).cast_to)))
+			#print("tang.norm = " + str($AllRaycasts/TangentVecs.get_child(index).cast_to.dot($AllRaycasts/NormVecs.get_child(index).cast_to)))
+			offset += debugRaysInterval
 				
-				$AllRaycasts/UpVecs.get_child(index).translation = curve.interpolate_baked(offset)
-				$AllRaycasts/UpVecs.get_child(index).cast_to = getUpFromOffset(offset)
-					
-				$AllRaycasts/TangentVecs.get_child(index).translation = curve.interpolate_baked(offset)
-				$AllRaycasts/TangentVecs.get_child(index).cast_to = getTangentFromOffset(offset)
 				
-				$AllRaycasts/NormVecs.get_child(index).translation = curve.interpolate_baked(offset)
-				$AllRaycasts/NormVecs.get_child(index).cast_to = getNormalFromUpAndTangent($AllRaycasts/UpVecs.get_child(index).cast_to, $AllRaycasts/TangentVecs.get_child(index).cast_to)
-				#print("up.tang = " + str($AllRaycasts/UpVecs.get_child(index).cast_to.dot($AllRaycasts/TangentVecs.get_child(index).cast_to)))
-				#print("up.norm = " + str($AllRaycasts/UpVecs.get_child(index).cast_to.dot($AllRaycasts/NormVecs.get_child(index).cast_to)))
-				#print("tang.norm = " + str($AllRaycasts/TangentVecs.get_child(index).cast_to.dot($AllRaycasts/NormVecs.get_child(index).cast_to)))
-				offset += debugRaysInterval
-				
+func changeXScale(newScale):
+	xyzScale = newScale
+	curveMainMesh(curve, curvedMeshStartingOffset)
