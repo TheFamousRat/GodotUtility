@@ -1,11 +1,12 @@
 tool
 
-extends Node
+extends MeshInstance
 
 var savedArrayMesh : ArrayMesh
 
 func _ready():
-	pass
+	get_parent().connect("commitSurfaceTool", self, "_on_MeshCurver_commitSurfaceTool")
+	get_parent().initMesh(self)
 
 func _on_MeshCurver_commitSurfaceTool(targetSt : SurfaceTool, curvedMeshMdt, beforeCurveMdt, surfaceIndex):
 	var curvedMeshInstance : MeshInstance = get_parent().getCurvedMesh()
