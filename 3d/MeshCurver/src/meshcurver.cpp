@@ -136,7 +136,6 @@ void MeshCurver::updateMesh(godot::Ref<godot::ArrayMesh> newMesh)
 void MeshCurver::updateCurve()
 {
 	godot::Ref<godot::Curve3D> curve = this->get_curve();
-	std::cout << prevCurve->get_point_count() << '\n';
 
 	if (prevCurve->get_point_count() != 0 && curve->get_point_count() != 0)
 	{
@@ -269,12 +268,7 @@ void MeshCurver::curveMainMesh(godot::Ref<godot::Curve3D> guidingCurve, float st
 		{
 			curvedMesh->get_children().clear();
 			curvedMesh->create_trimesh_collision();
-			std::cout << curvedMesh->get_child_count() << '\n';
 		}
-	}
-	else
-	{
-		std::cout << "wtf " << get_curve()->get_point_count() << '\n';
 	}
 }
 
