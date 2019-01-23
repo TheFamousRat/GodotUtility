@@ -21,6 +21,7 @@ void MeshCurver::_register_methods()
 	godot::register_method("_process", &MeshCurver::_process);
 	godot::register_method("updateCurve", &MeshCurver::updateCurve);
 	godot::register_method("getCurvedMesh", &MeshCurver::getCurvedMesh);
+	godot::register_method("getCollisionBody", &MeshCurver::getCollisionBody);
 
 	godot::register_signal<MeshCurver>(godot::String("commitSurfaceTool"), 
 	"targetSt", GODOT_VARIANT_TYPE_OBJECT,
