@@ -13,5 +13,4 @@ To use this plugin :
 1/Download
 2/Place everything in your project folder
 3/Instance MeshCurver.tscn (you have to click on the small chain just above your Scene's main node)
-4/CRUCIAL : RIGHT CLICK MESHCURVER AND CLICK 'MAKE LOCAL'
-5/Now you're ready to curve meshes like there's no tomorrow !
+4/Now you're ready to curve meshes like there's no tomorrow !
