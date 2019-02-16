@@ -1,0 +1,18 @@
+[remap]
+
+importer="wavefront_obj"
+type="Mesh"
+path="res://.import/library.obj-18d19eef28c99fe7d460e27413e261db.mesh"
+
+[deps]
+
+files=[ "res://.import/library.obj-18d19eef28c99fe7d460e27413e261db.mesh" ]
+
+source_file="res://nodes/MeshCurver/src/library.obj"
+dest_files=[ "res://.import/library.obj-18d19eef28c99fe7d460e27413e261db.mesh", "res://.import/library.obj-18d19eef28c99fe7d460e27413e261db.mesh" ]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3( 1, 1, 1 )
+optimize_mesh=true

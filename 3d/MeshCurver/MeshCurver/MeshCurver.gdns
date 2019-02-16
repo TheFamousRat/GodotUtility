@@ -1,9 +1,14 @@
 [gd_resource type="NativeScript" load_steps=2 format=2]
 
-[ext_resource path="res://MeshCurver/MeshCurver.gdnlib" type="GDNativeLibrary" id=1]
+[sub_resource type="GDNativeLibrary" id=1]
+
+config_file = Object(ConfigFile,"script":null)
+
+entry/Windows.64 = "res://nodes/MeshCurver/bin/win64/libmeshcurver.dll"
+dependency/Windows.64 = [  ]
 
 [resource]
 
 class_name = "MeshCurver"
-library = ExtResource( 1 )
+library = SubResource( 1 )
 

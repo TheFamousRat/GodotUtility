@@ -2,7 +2,7 @@
 import os, subprocess
 
 # define our target
-target_path = '../../godot/bin/'
+target_path = '../godot/nodes/MeshCurver/bin/'
 target_name = 'libmeshcurver'
 
 # Local dependency paths, adapt them to your setup

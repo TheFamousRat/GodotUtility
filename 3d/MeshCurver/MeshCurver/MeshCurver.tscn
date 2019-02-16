@@ -1,20 +1,24 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
-[ext_resource path="res://MeshCurver/MeshCurver.gdns" type="Script" id=1]
-[ext_resource path="res://MeshCurver/RessourceSaver.gd" type="Script" id=2]
-
-[sub_resource type="ArrayMesh" id=1]
-
+[ext_resource path="res://nodes/MeshCurver/MeshCurver/MeshCurver.gdns" type="Script" id=1]
+[ext_resource path="res://nodes/MeshCurver/MeshCurver/RessourceSaver.gd" type="Script" id=2]
 
 [sub_resource type="ArrayMesh" id=2]
 
 
+[sub_resource type="ArrayMesh" id=3]
+
+
+[sub_resource type="ArrayMesh" id=4]
+
+
 [node name="MeshCurver" type="Path"]
 script = ExtResource( 1 )
-mainMesh = SubResource( 1 )
+generateBoundingBox = true
+beginMesh = SubResource( 2 )
+mainMesh = SubResource( 3 )
+endMesh = SubResource( 4 )
 
-[node name="RessourceSaver" type="MeshInstance" parent="."]
-visible = false
-mesh = SubResource( 2 )
+[node name="RessourceSaver" type="Node" parent="."]
 script = ExtResource( 2 )
 

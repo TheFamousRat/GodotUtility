@@ -1,6 +1,8 @@
 #ifndef MESHCURVER_HPP
 #define MESHCURVER_HPP
 
+#define EPSILON 0.2f
+
 #include <iostream>
 #include <algorithm>
 #include <locale>
@@ -23,6 +25,11 @@
 #include <gen/SpatialMaterial.hpp>
 #include <gen/StaticBody.hpp>
 
+#define STORED_MESHES_COUNT 3
+#define BEGIN 0
+#define MAIN 1
+#define END 2
+
 namespace godot{
 
 class MeshCurver : public godot::Path {
@@ -30,33 +37,39 @@ class MeshCurver : public godot::Path {
 
 	private:
 
+		struct MultiSurfaceCurvedMesh{
+			std::vector<godot::Ref<godot::MeshDataTool>> sourceMeshMdt;//Contains the data of the original mesh, not repeated
+			std::vector<godot::Ref<godot::MeshDataTool>> beforeCurveMdt;//Contains the mesh, repeated X times but not yet curved
+			std::vector<godot::Ref<godot::MeshDataTool>> curvedMeshMdt;//Containes the mesh, repeated X times and curved
+
+			float minDist = 0.0f;
+			float maxDist = 0.0f;
+			float mainMeshDist = 0.0f;
+		};
+
 		bool enableUpVector = true;
-		godot::Ref<godot::ArrayMesh> mainMesh = godot::Ref<godot::ArrayMesh>();
+
+		godot::Ref<godot::ArrayMesh> storedMeshes[STORED_MESHES_COUNT];
+
 		int meshRepetitonsNumber = 1;
 		float curvedMeshStartingOffset = 0.0f;
 		bool generateBoundingBox = true;
 		godot::Vector3 xyzScale = godot::Vector3(1.0f, 1.0f, 1.0f);
 
-		float epsilon = 0.2f;
-		float minDist = 0.0f;
-		float maxDist = 0.0f;
-		float mainMeshDist = 0.0f;
-
 		godot::Vector3 guidingVectorOrigin = Vector3(0,0,0);
 		godot::Vector3 guidingVector = Vector3(1,0,0);
 		godot::Vector3 guidingVectorVisual = Vector3(1,0,0);//The above one is just this one, but normalized
 
-		std::vector<godot::Ref<godot::MeshDataTool>> mainMeshMdt;
-		std::vector<godot::Ref<godot::MeshDataTool>> beforeCurveMdt;
-		std::vector<godot::Ref<godot::MeshDataTool>> curvedMeshMdt;
+		MultiSurfaceCurvedMesh curvedMeshesData[STORED_MESHES_COUNT];
 
 		godot::Ref<godot::Curve3D> prevCurve = godot::Ref<godot::Curve3D>();
+
+		//Variables for update frequency of curvedMesh
 		int updateLowerBound = -1;
 		float updateFrequency = 0.1f;
 		float deltaSum = 0.0f;
 
 		godot::MeshInstance* curvedMesh;
-		godot::MeshInstance* savedMesh;
 
 	public:
 		static void _register_methods();
@@ -68,8 +81,16 @@ class MeshCurver : public godot::Path {
 		void setEnableUpVector(bool newValue) {enableUpVector = newValue; updateLowerBound = 0;};
 		bool getEnableUpVector() const {return enableUpVector;};
 		
-		void updateMesh(godot::Ref<godot::ArrayMesh> newMesh);
-		godot::Ref<godot::ArrayMesh> getMainMesh() const {return mainMesh;};
+		void updateMainMesh(godot::Ref<godot::ArrayMesh> newMesh);
+		godot::Ref<godot::ArrayMesh> getMainMesh() const {return storedMeshes[MAIN];};
+
+		void updateBeginMesh(godot::Ref<godot::ArrayMesh> newMesh);
+		godot::Ref<godot::ArrayMesh> getBeginMesh() const {return storedMeshes[BEGIN];};
+
+		void updateEndMesh(godot::Ref<godot::ArrayMesh> newMesh);
+		godot::Ref<godot::ArrayMesh> getEndMesh() const {return storedMeshes[END];};
+
+		void updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMeshIndex, bool updateCurvedMesh);
 		
 		void setMeshRepetitions(int newValue);
 		int getMeshRepetitions() const {return meshRepetitonsNumber;};
@@ -83,19 +104,16 @@ class MeshCurver : public godot::Path {
 		void setXYZScale(godot::Vector3 newScale) {xyzScale = newScale; updateLowerBound = 0;};
 		godot::Vector3 getXYZSCale() const {return xyzScale;};
 		
-		void setGuidingVector(godot::Vector3 newGuidingVec) 
-		{guidingVectorVisual = newGuidingVec;
-		guidingVector = newGuidingVec.normalized(); 
-		updateMesh(mainMesh);};
+		void setGuidingVector(godot::Vector3 newGuidingVec);
 		godot::Vector3 getGuidingVector() const {return guidingVectorVisual;};
 		
 		godot::MeshInstance* getCurvedMesh() const {return curvedMesh;};
 		godot::Node* getCollisionBody() const {return curvedMesh->get_child(0);};
 
-		void initMesh(godot::Object* savedMesh);
+		void initMesh();
 		void updateCurve();
-		void curveMainMesh(godot::Ref<godot::Curve3D> guidingCurve, float startingOffset = 0.0f, int updateFromVertexOfId = 0);
-		void repeatMeshFromMdtToMeshIns();
+		void curveMesh(godot::Ref<godot::Curve3D> guidingCurve, float startingOffset = 0.0f, int updateFromVertexOfId = 0);
+		void repeatMeshFromMdtToMeshIns(int meshIndex);
 
 		void recalculateDebugRayCasts() {};
 
