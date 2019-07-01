@@ -1,8 +1,11 @@
+#A simple Button that gets dragged when clicked on
+#The speed at which it follows the mouse can be changed by "DragSpeed"
+
 extends TextureButton
 
 var dragging : bool = false
 var originalMouseDelta : Vector2
-var dragSpeed : float = INF
+onready (float) var dragSpeed = INF
 
 func _on_DragNDrop_button_down():
 	dragging = true
