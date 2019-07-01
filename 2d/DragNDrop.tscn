@@ -1,0 +1,32 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://nodes/DragNDrop/DragNDrop.gd" type="Script" id=1]
+
+[sub_resource type="Gradient" id=1]
+offsets = PoolRealArray( 0 )
+colors = PoolColorArray( 0, 0, 0, 0.235294 )
+
+[sub_resource type="GradientTexture" id=2]
+gradient = SubResource( 1 )
+
+[sub_resource type="Gradient" id=3]
+offsets = PoolRealArray( 0 )
+colors = PoolColorArray( 0, 0, 0, 0.156863 )
+
+[sub_resource type="GradientTexture" id=4]
+gradient = SubResource( 3 )
+
+[node name="DragNDrop" type="TextureButton"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 208.959
+margin_top = 80.9203
+margin_right = -138.041
+margin_bottom = -119.08
+texture_pressed = SubResource( 2 )
+texture_hover = SubResource( 4 )
+expand = true
+script = ExtResource( 1 )
+[connection signal="button_down" from="." to="." method="_on_DragNDrop_button_down"]
+[connection signal="button_up" from="." to="." method="_on_DragNDrop_button_up"]
+
