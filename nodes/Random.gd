@@ -12,10 +12,6 @@ func uniform_distribution(min_ : float = 0.0, max_ : float = 1.0, continuous : b
 	else:
 		return int(min_) + randi()%(int(max_) - int(min_) + 1)
 
-func poisson_distribution(param : float):
-	if param > 1.0:
-		return int(round(normal_distribution(param,param)))
-
 func chi2_distribution(degOfFreedom : int) -> float:
 	var sum : float = 0.0
 	for i in range(0,degOfFreedom):
@@ -26,8 +22,8 @@ func chi2_distribution(degOfFreedom : int) -> float:
 func bernoulli_distribution(prob : float) -> int:
 	return int(randf() < prob)
 
-func binomial_distribution(tries : int, prob : float):
-	if tries < 100:
+func binomial_distribution(tries : int, prob : float, simulated : bool):
+	if tries < 100 or simulated:
 		var acc : int = 0
 		for i in range(0,tries):
 			acc += bernoulli_distribution(prob)
