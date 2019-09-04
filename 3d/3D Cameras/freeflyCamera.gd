@@ -7,6 +7,7 @@ extends Camera
 export (bool) var movEnabled = true
 export (float) var mouseSensitivity = 0.5
 export (float) var flyspeed = 100.0
+export (bool) var debug = false
 
 var yaw : float = 0.0
 var pitch : float = 0.0
@@ -16,6 +17,10 @@ func _ready():
 	pitch = 0.0
 
 func _input(event):
+	if event.is_action_pressed("leftClick") and debug:
+		movEnabled = !movEnabled
+		self.set_process(!is_processing())
+
 	if event is InputEventMouseMotion and movEnabled:
 		var mouseVec : Vector2 = event.get_relative()
 
